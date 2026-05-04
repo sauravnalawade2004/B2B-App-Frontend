@@ -1,123 +1,63 @@
-import React, { useEffect, useState } from 'react';
+// ─────────────────────────────────────────────────────────────────────────────
+// src/navigation/AppNavigator.js
+// Auth-gated stack navigator.
+// Shows Splash → then Login/Signup (if not logged in) or Home (if logged in).
+// ─────────────────────────────────────────────────────────────────────────────
+import React from 'react';
+import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import SplashScreen from '../screens/SplashScreen';
-import LoginScreen from '../screens/LoginScreen';
-import SignupScreen from '../screens/SignupScreen';
-import HomeScreen from '../screens/HomeScreen';
-import CartScreen from '../screens/CartScreen';
-import CheckoutScreen from '../screens/CheckoutScreen';
-import OrdersScreen from '../screens/OrdersScreen';
-import TrackOrderScreen from '../screens/TrackorderScreen';
-import ProfileScreen from '../screens/ProfileScreen';
+import { useAuth } from '../context/AuthContext';
+
+import SplashScreen       from '../screens/SplashScreen';
+import LoginScreen        from '../screens/LoginScreen';
+import SignupScreen       from '../screens/SignupScreen';
+import HomeScreen         from '../screens/HomeScreen';
+import CartScreen         from '../screens/CartScreen';
+import OrdersScreen       from '../screens/OrdersScreen';
+import ProfileScreen      from '../screens/ProfileScreen';
+import OrderSuccessScreen from '../screens/OrderSuccessScreen';
+import TrackOrderScreen   from '../screens/TrackorderScreen';
 
 const Stack = createNativeStackNavigator();
 
+// Shared screen options (no header, slide animation)
+const SCREEN_OPTS = { headerShown: false };
+
 const AppNavigator = () => {
-  const [initialRoute, setInitialRoute] = useState('Splash');
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, loading } = useAuth();
 
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      try {
-        // Simulate a delay for splash screen
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        // Check if user is logged in (currently hardcoded to false for demo)
-        const isUserLoggedIn = false;
-        setInitialRoute(isUserLoggedIn ? 'Home' : 'Login');
-      } catch (error) {
-        setInitialRoute('Login');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkAuthStatus();
-  }, []);
-
-  if (isLoading) {
-    return null;
+  // While restoring session show a simple loader (SplashScreen handles branding)
+  if (loading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#FFF5EB', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#C0612B" />
+      </View>
+    );
   }
 
   return (
     <NavigationContainer>
-      <Stack.Navigator
-        screenOptions={{
-          headerShown: false,
-          animationEnabled: true,
-        }}
-        initialRouteName={initialRoute}
-      >
-        {/* Splash Screen */}
-        <Stack.Screen
-          name="Splash"
-          component={SplashScreen}
-          options={{
-            animationEnabled: false,
-          }}
-        />
-
-        {/* Auth Stack */}
-        <Stack.Screen
-          name="Login"
-          component={LoginScreen}
-          options={{
-            animationEnabled: false,
-            cardStyle: { backgroundColor: '#fff' },
-          }}
-        />
-        <Stack.Screen
-          name="Signup"
-          component={SignupScreen}
-          options={{
-            cardStyle: { backgroundColor: '#fff' },
-          }}
-        />
-
-        {/* App Stack */}
-        <Stack.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{
-            animationEnabled: false,
-          }}
-        />
-        <Stack.Screen
-          name="Cart"
-          component={CartScreen}
-          options={{
-            animationEnabled: true,
-          }}
-        />
-        <Stack.Screen
-          name="Checkout"
-          component={CheckoutScreen}
-          options={{
-            animationEnabled: true,
-          }}
-        />
-        <Stack.Screen
-          name="Orders"
-          component={OrdersScreen}
-          options={{
-            animationEnabled: true,
-          }}
-        />
-        <Stack.Screen
-          name="TrackOrder"
-          component={TrackOrderScreen}
-          options={{
-            animationEnabled: true,
-          }}
-        />
-        <Stack.Screen
-          name="Profile"
-          component={ProfileScreen}
-          options={{
-            animationEnabled: true,
-          }}
-        />
+      <Stack.Navigator screenOptions={SCREEN_OPTS}>
+        {user ? (
+          // ── Authenticated ────────────────────────────────────────────────
+          <>
+            <Stack.Screen name="Home"         component={HomeScreen} />
+            <Stack.Screen name="Cart"         component={CartScreen} />
+            <Stack.Screen name="Orders"       component={OrdersScreen} />
+            <Stack.Screen name="Profile"      component={ProfileScreen} />
+            <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
+            <Stack.Screen name="TrackOrder"   component={TrackOrderScreen} />
+          </>
+        ) : (
+          // ── Unauthenticated ──────────────────────────────────────────────
+          <>
+            <Stack.Screen name="Splash" component={SplashScreen} />
+            <Stack.Screen name="Login"  component={LoginScreen} />
+            <Stack.Screen name="Signup" component={SignupScreen} />
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );

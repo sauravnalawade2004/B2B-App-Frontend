@@ -8,6 +8,8 @@ const getToken = async () => {
   return await AsyncStorage.getItem('token');
 };
 
+const REQUEST_TIMEOUT_MS = 15000;
+
 const request = async (method, endpoint, body = null, requiresAuth = true) => {
   const headers = { 'Content-Type': 'application/json' };
 
@@ -16,20 +18,39 @@ const request = async (method, endpoint, body = null, requiresAuth = true) => {
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const options = { method, headers };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  const options = { method, headers, signal: controller.signal };
   if (body) options.body = JSON.stringify(body);
 
   try {
     const response = await fetch(`${BASE_URL}${endpoint}`, options);
-    const data = await response.json();
+
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (e) {
+      data = null;
+    }
 
     if (!response.ok) {
-      throw new Error(data.message || 'Something went wrong');
+      const msg =
+        (data && (data.message || data.error)) ||
+        `Request failed (${response.status})`;
+      throw new Error(msg);
     }
 
     return data;
   } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error(
+        `Request timed out. Check your API server and BASE_URL in src/api/index.js (current: ${BASE_URL}).`
+      );
+    }
     throw error;
+  } finally {
+    clearTimeout(timeout);
   }
 };
 

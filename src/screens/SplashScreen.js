@@ -1,188 +1,191 @@
-import React, { useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ImageBackground,
-  Animated,
-  Dimensions,
-  ActivityIndicator,
-} from 'react-native';
+// ─────────────────────────────────────────────────────────────────────────────
+// src/screens/SplashScreen.js
+// Brand splash — shown while auth state loads.
+// AppNavigator auto-redirects once loading is done.
+// ─────────────────────────────────────────────────────────────────────────────
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated, Dimensions, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAuth } from '../context/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 
 const SplashScreen = ({ navigation }) => {
-  const spinAnim = new Animated.Value(0);
+  const { user } = useAuth();
+  const fadeAnim  = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(40)).current;
+  const spinAnim  = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Start rotation animation
+    // Fade-in animation
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 800, useNativeDriver: true }),
+    ]).start();
+
+    // Spinning loader
     Animated.loop(
-      Animated.timing(spinAnim, {
-        toValue: 1,
-        duration: 2000,
-        useNativeDriver: true,
-      })
+      Animated.timing(spinAnim, { toValue: 1, duration: 1200, useNativeDriver: true })
     ).start();
 
-    // Navigate to Signup after 4.5 seconds
+    // Navigate after 2.5 s
     const timer = setTimeout(() => {
-      navigation.replace('Signup');
-    }, 4500);
+      if (user) {
+        navigation.replace('Home');
+      } else {
+        navigation.replace('Login');
+      }
+    }, 2500);
 
     return () => clearTimeout(timer);
-  }, [navigation, spinAnim]);
+  }, []);
 
-  const spin = spinAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
+  const spin = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
   return (
     <LinearGradient
-      colors={['#f5e6d3', '#e8dcc8', '#d4c4b0', '#b8a8d4']}
+      colors={['#FFF5EB', '#FFE4C4', '#FFDAB3']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.container}
     >
-      <View style={styles.content}>
-        {/* Product Image Container */}
-        <View style={styles.imageContainer}>
-          <View style={styles.productBox}>
-            {/* Placeholder for product image */}
-            <View style={styles.imagePlaceholder} />
-          </View>
+      <Animated.View
+        style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
+      >
+          <Image
+            source={require('../../assets/Logo.png')}  // your logo file
+            style={styles.logo}
+            resizeMode="contain"
+          />
+
+        <Text style={styles.brandName}>BAYO Masala</Text>
+        <Text style={styles.taglineHindi}>स्वाद में शुद्धता का वादा</Text>
+
+        <View style={styles.pillContainer}>
+          <Text style={styles.pillText}>PREMIER B2B SPICE PARTNER</Text>
         </View>
 
-        {/* Brand Name */}
-        <Text style={styles.brandName}>Bayo Masala</Text>
-
-        {/* Hindi Tagline */}
-        <Text style={styles.hindiText}>स्वादिष्ट और शुद्धता का वादा</Text>
-
-        {/* Tagline */}
-        <View style={styles.taglineContainer}>
-          <Text style={styles.tagline}>YOUR PREMIER B2B SPICE PARTNER</Text>
+        <View style={styles.promisesRow}>
+          {['No Preservatives', 'No MSG', 'No Added Colour'].map((p) => (
+            <View key={p} style={styles.promiseBadge}>
+              <Text style={styles.promiseText}>{p}</Text>
+            </View>
+          ))}
         </View>
+      </Animated.View>
 
-        {/* Loading Indicator */}
-        <View style={styles.loaderContainer}>
-          <Animated.View
-            style={{
-              transform: [{ rotate: spin }],
-            }}
-          >
-            <View style={styles.spinnerShape} />
-          </Animated.View>
-        </View>
+      <View style={styles.loaderArea}>
+        <Animated.View style={[styles.spinner, { transform: [{ rotate: spin }] }]} />
+      </View>
 
-        {/* Bottom Text */}
-        <View style={styles.footerContainer}>
-          <Text style={styles.poweredBy}>POWERED BY</Text>
-          <Text style={styles.companyName}>THE SPICE ATELIER</Text>
-        </View>
+      <View style={styles.footer}>
+        <Text style={styles.footerSub}>POWERED BY</Text>
+        <Text style={styles.footerBrand}>THE SPICE ATELIER</Text>
       </View>
     </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
   content: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: height * 0.08,
-  },
-  imageContainer: {
+    paddingHorizontal: 24,
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: height * 0.05,
   },
-  productBox: {
-    width: 220,
-    height: 280,
-    borderRadius: 50,
-    backgroundColor: '#ffffff',
+
+  // ── Logo — adjust size here ↓ ─────────────────────────────────────────────
+  logoContainer: {
+    marginBottom: 24,
+    width:        width * 0.42,
+    height:       width * 0.42,
+    borderRadius: width * 0.21,
+    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 15,
+    elevation: 12,
+    shadowColor: '#C0612B',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
   },
-  imagePlaceholder: {
-    width: 200,
-    height: 260,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 40,
+  // When using real Image tag, apply this style:
+  logo: {
+    width:        width * 0.38,  // ← adjust logo image size here
+    height:       width * 0.38,
+  },
+  logoPlaceholder: {
+    width:        width * 0.36,
+    height:       width * 0.36,
+    borderRadius: width * 0.18,
+    backgroundColor: '#C0612B',
     justifyContent: 'center',
     alignItems: 'center',
   },
+  logoInitial: { fontSize: width * 0.18, fontWeight: '900', color: '#fff' },
+
   brandName: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#b8721f',
-    marginTop: 20,
+    fontSize:     Math.min(width * 0.12, 48),
+    fontWeight:   '800',
+    color:        '#C0612B',
     letterSpacing: 1,
+    marginBottom: 6,
   },
-  hindiText: {
-    fontSize: 18,
-    color: '#4a4a4a',
-    marginTop: 8,
-    fontStyle: 'italic',
-    letterSpacing: 0.5,
+  taglineHindi: {
+    fontSize:     Math.min(width * 0.042, 17),
+    color:        '#6B3A1F',
+    fontStyle:    'italic',
+    marginBottom: 16,
+    letterSpacing: 0.4,
   },
-  taglineContainer: {
-    backgroundColor: '#f5e0d8',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 25,
-    marginTop: 15,
+  pillContainer: {
+    backgroundColor: '#FDE3D0',
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 24,
+    marginBottom: 24,
   },
-  tagline: {
-    fontSize: 12,
-    color: '#c41e3a',
-    fontWeight: '600',
-    letterSpacing: 2,
+  pillText: {
+    fontSize:      Math.min(width * 0.028, 12),
+    color:         '#C0612B',
+    fontWeight:    '700',
+    letterSpacing: 1.8,
   },
-  loaderContainer: {
-    marginTop: 20,
-    height: 50,
+  promisesRow: {
+    flexDirection: 'row',
+    flexWrap:      'wrap',
     justifyContent: 'center',
-    alignItems: 'center',
+    gap: 8,
   },
-  spinnerShape: {
-    width: 40,
-    height: 40,
+  promiseBadge: {
+    backgroundColor: 'rgba(192,97,43,0.1)',
+    borderWidth:  1,
+    borderColor:  'rgba(192,97,43,0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: 20,
-    borderWidth: 4,
-    borderColor: '#b8721f',
+  },
+  promiseText: {
+    fontSize:   Math.min(width * 0.028, 11),
+    color:      '#8B4513',
+    fontWeight: '600',
+  },
+
+  loaderArea: { marginBottom: 32 },
+  spinner: {
+    width:        36,
+    height:       36,
+    borderRadius: 18,
+    borderWidth:  3,
+    borderColor:  '#C0612B',
     borderTopColor: 'transparent',
   },
-  footerContainer: {
-    alignItems: 'center',
-    marginBottom: height * 0.03,
-  },
-  poweredBy: {
-    fontSize: 12,
-    color: '#8b8b8b',
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  companyName: {
-    fontSize: 14,
-    color: '#b8721f',
-    fontWeight: '700',
-    letterSpacing: 1.5,
-  },
+
+  footer: { alignItems: 'center', paddingBottom: height * 0.05 },
+  footerSub: { fontSize: 10, color: '#A0856B', letterSpacing: 1.5, marginBottom: 2 },
+  footerBrand: { fontSize: 13, color: '#C0612B', fontWeight: '700', letterSpacing: 2 },
 });
 
 export default SplashScreen;

@@ -1,13 +1,21 @@
+
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import AppNavigator from './src/navigation/AppNavigator';
-import { AuthProvider } from './src/context/AuthContext';
+
+import { AuthProvider }  from './src/context/AuthContext.js';
+import { CartProvider }  from './src/context/CartContext.js';
+import { OrderProvider } from './src/context/OrderContext.js';
+import AppNavigator      from './src/navigation/AppNavigator.js';
 
 export default function App() {
   return (
     <AuthProvider>
-      <AppNavigator />
-      <StatusBar style="auto" />
+      <CartProvider>
+        <OrderProvider>
+          <AppNavigator />
+          <StatusBar style="light" />
+        </OrderProvider>
+      </CartProvider>
     </AuthProvider>
   );
 }

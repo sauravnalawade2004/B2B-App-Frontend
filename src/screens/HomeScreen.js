@@ -1,257 +1,502 @@
-import React, { useState, useEffect, useCallback } from 'react';
+// ─────────────────────────────────────────────────────────────────────────────
+// HomeScreen.js — Product catalog with category filters + add to cart
+// ─────────────────────────────────────────────────────────────────────────────
+import React, { useState, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, FlatList, Dimensions, SafeAreaView,
-  ActivityIndicator, Alert, RefreshControl,
+  View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity,
+  FlatList, Dimensions, SafeAreaView, Image, Platform,
 } from 'react-native';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { productAPI, cartAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
+import { CATEGORIES, PRODUCTS } from '../data/products';
 
 const { width } = Dimensions.get('window');
 
-const HomeScreen = ({ navigation }) => {
-  const { user } = useAuth();
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [products, setProducts] = useState([]);
-  const [cartCount, setCartCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [search, setSearch] = useState('');
-  const [addingId, setAddingId] = useState(null);
+// ── Responsive card width ────────────────────────────────────────────────────
+const CARD_GAP = 12;
+const H_PAD = 16;
+// Adjust COLUMNS here if you want 1 or 3 columns:
+const COLUMNS = 2;
+const CARD_WIDTH = (width - H_PAD * 2 - CARD_GAP * (COLUMNS - 1)) / COLUMNS;
 
-  const categories = ['All', 'Spices', 'Powder', 'Whole'];
-
-  const fetchProducts = useCallback(async () => {
-    try {
-      const data = await productAPI.getAll(selectedCategory, search);
-      setProducts(data.products);
-    } catch (error) {
-      Alert.alert('Error', error.message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [selectedCategory, search]);
-
-  const fetchCartCount = useCallback(async () => {
-    try {
-      const data = await cartAPI.get();
-      setCartCount(data.items?.length || 0);
-    } catch (_) {}
-  }, []);
-
-  useEffect(() => { fetchProducts(); }, [fetchProducts]);
-  useEffect(() => { fetchCartCount(); }, [fetchCartCount]);
-
-  const handleAddToCart = async (product) => {
-    setAddingId(product._id);
-    try {
-      await cartAPI.add(product._id, product.moq);
-      setCartCount((c) => c + 1);
-      Alert.alert('Added to Cart', `${product.name} (${product.moq}${product.unit}) added!`);
-    } catch (error) {
-      Alert.alert('Error', error.message);
-    } finally {
-      setAddingId(null);
-    }
-  };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchProducts();
-  };
-
-  const renderProduct = ({ item }) => (
-    <View style={styles.productCard}>
-      <View style={[styles.productImage, { backgroundColor: item.backgroundColor }]} />
-      <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
-      <Text style={styles.gradeText}>{item.grade}</Text>
-      <Text style={styles.moqText}>MOQ: {item.moq}{item.unit}</Text>
-      <Text style={styles.priceText}>₹{item.price}/{item.unit}</Text>
-      {item.badge && (
-        <View style={styles.badgeTag}>
-          <Text style={styles.badgeText}>{item.badge}</Text>
-        </View>
-      )}
-      <TouchableOpacity
-        style={[styles.addToCartBtn, addingId === item._id && styles.addingBtn]}
-        onPress={() => handleAddToCart(item)}
-        disabled={addingId === item._id}
-      >
-        {addingId === item._id
-          ? <ActivityIndicator size="small" color="#fff" />
-          : <>
-              <MaterialIcons name="shopping-cart" size={16} color="#fff" />
-              <Text style={styles.addToCartText}>Add to Cart</Text>
-            </>
-        }
-      </TouchableOpacity>
+// ── Product Image component ──────────────────────────────────────────────────
+// When you have real images, replace the colored View with an Image tag.
+const ProductImage = ({ product, style }) => {
+  if (product.image) {
+    return (
+      <Image
+        source={product.image} // ← local require() image
+        style={[styles.productImg, style]}
+        resizeMode="cover"
+      />
+    );
+  }
+  // Fallback color block with initials
+  return (
+    <View style={[styles.productImg, { backgroundColor: product.backgroundColor || '#C0612B' }, style]}>
+      <Text style={styles.productImgText}>{product.name.charAt(0)}</Text>
     </View>
   );
+};
+
+const HomeScreen = ({ navigation }) => {
+  const { user } = useAuth();
+  const { addToCart, isInCart, getCartItem, updateQuantity, totalItems } = useCart();
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [search, setSearch] = useState('');
+
+  // ── Filter + search products ─────────────────────────────────────────────
+  const filteredProducts = useMemo(() => {
+    let list = PRODUCTS;
+    if (selectedCategory !== 'All') {
+      list = list.filter((p) => p.category === selectedCategory);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(
+        (p) => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [selectedCategory, search]);
+
+  // ── Greeting ─────────────────────────────────────────────────────────────
+  const greeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good Morning';
+    if (h < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
+  // ── Render product card ──────────────────────────────────────────────────
+  const renderProduct = ({ item }) => {
+    const inCart = isInCart(item.id);
+    const cartItem = getCartItem(item.id);
+
+    return (
+      <View style={styles.productCard}>
+        <ProductImage product={item} />
+        {item.badge && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{item.badge}</Text>
+          </View>
+        )}
+        <View style={styles.cardBody}>
+          <Text style={styles.productCategory}>{item.category}</Text>
+          <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
+          <Text style={styles.packSize}>{item.packSize}</Text>
+          <Text style={styles.productDesc} numberOfLines={2}>{item.description}</Text>
+          <View style={styles.priceRow}>
+            <Text style={styles.price}>₹{item.price}</Text>
+            <Text style={styles.priceUnit}>/{item.unit}</Text>
+          </View>
+
+          {/* ── Add to Cart / Quantity Controls ─────────────────────────── */}
+          {!inCart ? (
+            <TouchableOpacity
+              style={styles.addBtn}
+              onPress={() => addToCart(item, 1)}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="add-shopping-cart" size={15} color="#fff" />
+              <Text style={styles.addBtnText}>Add to Cart</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.qtyControls}>
+              <TouchableOpacity
+                style={styles.qtyBtn}
+                onPress={() => {
+                  if (cartItem.quantity === 1) return; // Remove handled in CartScreen
+                  updateQuantity(cartItem.id, cartItem.quantity - 1);
+                }}
+              >
+                <Text style={styles.qtyBtnText}>−</Text>
+              </TouchableOpacity>
+              <Text style={styles.qtyValue}>{cartItem.quantity}</Text>
+              <TouchableOpacity
+                style={styles.qtyBtn}
+                onPress={() => updateQuantity(cartItem.id, cartItem.quantity + 1)}
+              >
+                <Text style={styles.qtyBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity>
-          <MaterialIcons name="menu" size={28} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Bayo Masala</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
-          <MaterialCommunityIcons name="account-circle" size={32} color="#8B4513" />
+      {/* ── Top bar ───────────────────────────────────────────────────────── */}
+      <View style={styles.topBar}>
+          <Image source={require('../../assets/Logo.png')} style={styles.topLogo} resizeMode="contain" />
+        <Text style={styles.topBarTitle}>BAYO Masala</Text>
+
+        <TouchableOpacity
+          style={styles.cartBtn}
+          onPress={() => navigation.navigate('Cart')}
+        >
+          <MaterialIcons name="shopping-cart" size={24} color="#fff" />
+          {totalItems > 0 && (
+            <View style={styles.cartBadge}>
+              <Text style={styles.cartBadgeText}>{totalItems}</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        style={styles.content}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#8B4513']} />}
-      >
-        <View style={styles.greetingSection}>
-          <Text style={styles.greetingText}>Hello, {user?.FullName?.split(' ')[0]} 👋</Text>
-          <Text style={styles.subText}>Ready for your bulk spice procurement today?</Text>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {/* ── Greeting ──────────────────────────────────────────────────── */}
+        <View style={styles.greetRow}>
+          <View>
+            <Text style={styles.greetText}>
+              {greeting()}, {user?.fullName?.split(' ')[0] || 'Partner'} 👋
+            </Text>
+            <Text style={styles.greetSub}>{user?.businessName || 'Your B2B Spice Dashboard'}</Text>
+          </View>
+          <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+            <MaterialCommunityIcons name="account-circle" size={44} color="#C0612B" />
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.searchContainer}>
-          <MaterialIcons name="search" size={20} color="#999" />
+        {/* ── Search ──────────────────────────────────────────────────────── */}
+        <View style={styles.searchBar}>
+          <MaterialIcons name="search" size={20} color="#A0856B" />
           <TextInput
-            placeholder="Search premium spices, herbs..."
-            placeholderTextColor="#bbb"
             style={styles.searchInput}
+            placeholder="Search masala, spices, blends..."
+            placeholderTextColor="#C8A882"
             value={search}
             onChangeText={setSearch}
             returnKeyType="search"
-            onSubmitEditing={fetchProducts}
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => setSearch('')}>
-              <MaterialIcons name="clear" size={20} color="#999" />
+              <MaterialIcons name="close" size={18} color="#A0856B" />
             </TouchableOpacity>
           )}
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
-          {categories.map((cat) => (
+        {/* ── Category filter chips ────────────────────────────────────────── */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoryScroll}
+          contentContainerStyle={styles.categoryContent}
+        >
+          {CATEGORIES.map((cat) => (
             <TouchableOpacity
               key={cat}
+              style={[styles.catChip, selectedCategory === cat && styles.catChipActive]}
               onPress={() => setSelectedCategory(cat)}
-              style={[styles.categoryBtn, selectedCategory === cat && styles.categoryBtnActive]}
+              activeOpacity={0.7}
             >
-              <Text style={[styles.categoryText, selectedCategory === cat && styles.categoryTextActive]}>
+              <Text style={[styles.catChipText, selectedCategory === cat && styles.catChipTextActive]}>
                 {cat}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
+        {/* ── Promo banner ─────────────────────────────────────────────────── */}
         <LinearGradient
-          colors={['rgba(139, 69, 19, 0.9)', 'rgba(101, 50, 15, 0.9)']}
-          style={styles.promotionBanner}
+          colors={['#C0612B', '#8B3A1A']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.promoBanner}
         >
-          <View style={styles.promotionContent}>
-            <Text style={styles.seasonalLabel}>SEASONAL SPECIAL</Text>
-            <Text style={styles.promotionTitle}>Premium Guntur Sannam</Text>
-            <Text style={styles.promotionDesc}>Best rates for bulk orders over 50kg this month.</Text>
+          <View style={styles.promoContent}>
+            <Text style={styles.promoLabel}>BAYO PROMISE</Text>
+            <Text style={styles.promoTitle}>Premium Quality{'\n'}Every Batch</Text>
+            <Text style={styles.promoDesc}>No preservatives · No MSG · No added colour</Text>
           </View>
-          <MaterialCommunityIcons name="fire" size={60} color="rgba(255, 165, 0, 0.8)" />
+          <MaterialCommunityIcons name="fire" size={70} color="rgba(255,200,100,0.7)" />
         </LinearGradient>
 
-        <View style={styles.catalogHeader}>
-          <Text style={styles.catalogTitle}>Wholesale Catalog</Text>
-          <Text style={styles.countText}>{products.length} products</Text>
+        {/* ── Catalogue header ─────────────────────────────────────────────── */}
+        <View style={styles.catHeader}>
+          <Text style={styles.catHeaderTitle}>
+            {selectedCategory === 'All' ? 'All Products' : selectedCategory}
+          </Text>
+          <Text style={styles.catHeaderCount}>{filteredProducts.length} items</Text>
         </View>
 
-        {loading ? (
-          <ActivityIndicator size="large" color="#8B4513" style={{ marginTop: 40 }} />
-        ) : products.length === 0 ? (
-          <View style={styles.empty}>
-            <MaterialCommunityIcons name="package-variant" size={60} color="#ddd" />
+        {/* ── Product grid ─────────────────────────────────────────────────── */}
+        {filteredProducts.length === 0 ? (
+          <View style={styles.emptyState}>
+            <MaterialCommunityIcons name="magnify-close" size={56} color="#DDD" />
             <Text style={styles.emptyText}>No products found</Text>
+            <TouchableOpacity onPress={() => { setSearch(''); setSelectedCategory('All'); }}>
+              <Text style={styles.emptyClear}>Clear filters</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <FlatList
-            data={products}
+            data={filteredProducts}
             renderItem={renderProduct}
-            keyExtractor={(item) => item._id}
-            numColumns={2}
+            keyExtractor={(item) => item.id}
+            numColumns={COLUMNS}
             columnWrapperStyle={styles.productRow}
             scrollEnabled={false}
+            contentContainerStyle={{ paddingBottom: 24 }}
           />
         )}
       </ScrollView>
 
+      {/* ── Bottom navigation ─────────────────────────────────────────────── */}
       <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Home')}>
-          <MaterialCommunityIcons name="home" size={24} color="#8B4513" />
-          <Text style={[styles.navLabel, { color: '#8B4513' }]}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Cart')}>
-          <View>
-            <MaterialIcons name="shopping-cart" size={24} color="#999" />
-            {cartCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeNum}>{cartCount}</Text>
-              </View>
-            )}
-          </View>
-          <Text style={styles.navLabel}>Cart</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Orders')}>
-          <MaterialCommunityIcons name="calendar-check" size={24} color="#999" />
-          <Text style={styles.navLabel}>Orders</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
-          <MaterialCommunityIcons name="account-circle" size={24} color="#999" />
-          <Text style={styles.navLabel}>Profile</Text>
-        </TouchableOpacity>
+        {[
+          { icon: 'home', label: 'Home', screen: 'Home', active: true },
+          { icon: 'shopping-cart', label: 'Cart', screen: 'Cart', active: false, count: totalItems },
+          { icon: 'receipt-long', label: 'Orders', screen: 'Orders', active: false },
+          { icon: 'person-outline', label: 'Profile', screen: 'Profile', active: false },
+        ].map((tab) => (
+          <TouchableOpacity
+            key={tab.label}
+            style={styles.navTab}
+            onPress={() => navigation.navigate(tab.screen)}
+          >
+            <View>
+              <MaterialIcons name={tab.icon} size={24} color={tab.active ? '#C0612B' : '#AAA'} />
+              {tab.count > 0 && (
+                <View style={styles.navBadge}>
+                  <Text style={styles.navBadgeText}>{tab.count}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={[styles.navLabel, tab.active && styles.navLabelActive]}>{tab.label}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fafafa' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#8B4513' },
-  content: { flex: 1, paddingHorizontal: 20, paddingTop: 20 },
-  greetingSection: { marginBottom: 20 },
-  greetingText: { fontSize: 26, fontWeight: 'bold', color: '#333', marginBottom: 5 },
-  subText: { fontSize: 14, color: '#666' },
-  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f0f0', borderRadius: 25, paddingHorizontal: 15, paddingVertical: 10, marginBottom: 20 },
-  searchInput: { flex: 1, marginLeft: 10, fontSize: 14, color: '#333' },
-  categoryScroll: { marginBottom: 20 },
-  categoryBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 20, backgroundColor: '#f0f0f0', marginRight: 10 },
-  categoryBtnActive: { backgroundColor: '#8B4513' },
-  categoryText: { color: '#666', fontWeight: '600', fontSize: 14 },
-  categoryTextActive: { color: '#fff' },
-  promotionBanner: { borderRadius: 15, padding: 20, marginBottom: 25, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  promotionContent: { flex: 1 },
-  seasonalLabel: { color: '#ffb366', fontSize: 11, fontWeight: 'bold', letterSpacing: 1, marginBottom: 5 },
-  promotionTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff', marginBottom: 6 },
-  promotionDesc: { fontSize: 12, color: '#f0f0f0' },
-  catalogHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  catalogTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-  countText: { color: '#999', fontSize: 13 },
-  productRow: { justifyContent: 'space-between', marginBottom: 15 },
-  productCard: { width: (width - 60) / 2, backgroundColor: '#fff', borderRadius: 15, overflow: 'hidden', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3 },
-  productImage: { width: '100%', height: 110 },
-  productName: { fontSize: 13, fontWeight: '600', color: '#333', paddingHorizontal: 10, paddingTop: 10 },
-  gradeText: { fontSize: 11, color: '#999', paddingHorizontal: 10, marginTop: 2 },
-  moqText: { fontSize: 11, color: '#8B4513', paddingHorizontal: 10, marginTop: 4, fontWeight: '600' },
-  priceText: { fontSize: 16, fontWeight: 'bold', color: '#333', paddingHorizontal: 10, marginTop: 4 },
-  badgeTag: { backgroundColor: '#8B4513', marginHorizontal: 10, marginTop: 4, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, alignSelf: 'flex-start' },
-  badgeText: { color: '#fff', fontSize: 9, fontWeight: '700' },
-  addToCartBtn: { flexDirection: 'row', backgroundColor: '#8B4513', margin: 10, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, justifyContent: 'center', alignItems: 'center', gap: 5 },
-  addingBtn: { backgroundColor: '#b8866e' },
-  addToCartText: { color: '#fff', fontWeight: '600', fontSize: 12 },
-  empty: { alignItems: 'center', marginTop: 60, marginBottom: 40 },
-  emptyText: { color: '#999', fontSize: 15, marginTop: 12 },
-  bottomNav: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#eee', paddingVertical: 10 },
-  navItem: { alignItems: 'center' },
-  navLabel: { fontSize: 11, marginTop: 4, color: '#999', fontWeight: '500' },
-  badge: { position: 'absolute', top: -4, right: -8, backgroundColor: '#8B4513', borderRadius: 10, width: 18, height: 18, justifyContent: 'center', alignItems: 'center' },
-  badgeNum: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
+  container: { flex: 1, backgroundColor: '#FFF8F2' },
+
+  // ── Top bar ───────────────────────────────────────────────────────────────
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#C0612B',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    elevation: 4,
+    shadowColor: '#C0612B',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+  },
+  topLogoCircle: {
+    // Adjust top bar logo size here ↓
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  topLogo: { width: 34, height: 34, marginRight: 10 },
+  topLogoLetter: { fontSize: 16, fontWeight: '900', color: '#fff' },
+  topBarTitle: { flex: 1, fontSize: 18, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
+  cartBtn: { position: 'relative', padding: 4 },
+  cartBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -4,
+    backgroundColor: '#FFD700',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 3,
+  },
+  cartBadgeText: { fontSize: 10, fontWeight: '800', color: '#8B3A1A' },
+
+  scrollContent: { paddingHorizontal: H_PAD },
+
+  // ── Greeting ──────────────────────────────────────────────────────────────
+  greetRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 18,
+  },
+  greetText: { fontSize: Math.min(width * 0.055, 22), fontWeight: '800', color: '#2C1A0E' },
+  greetSub: { fontSize: 13, color: '#A0856B', marginTop: 2, fontWeight: '500' },
+
+  // ── Search bar ────────────────────────────────────────────────────────────
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: '#F5D5B5',
+    elevation: 2,
+    shadowColor: '#C0612B',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+  },
+  searchInput: { flex: 1, fontSize: 14, color: '#333', marginHorizontal: 8 },
+
+  // ── Category chips ────────────────────────────────────────────────────────
+  categoryScroll: { marginBottom: 16 },
+  categoryContent: { paddingRight: 8, gap: 10 },
+  catChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 22,
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#F5D5B5',
+    elevation: 1,
+  },
+  catChipActive: { backgroundColor: '#C0612B', borderColor: '#C0612B' },
+  catChipText: { fontSize: 13, fontWeight: '600', color: '#8B4513' },
+  catChipTextActive: { color: '#fff' },
+
+  // ── Promo banner ──────────────────────────────────────────────────────────
+  promoBanner: {
+    borderRadius: 18,
+    padding: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    elevation: 4,
+    shadowColor: '#8B3A1A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  promoContent: { flex: 1 },
+  promoLabel: { fontSize: 10, color: '#FFD5A8', fontWeight: '700', letterSpacing: 1.5, marginBottom: 4 },
+  promoTitle: { fontSize: Math.min(width * 0.055, 22), fontWeight: '800', color: '#fff', marginBottom: 6, lineHeight: Math.min(width * 0.066, 26) },
+  promoDesc: { fontSize: 12, color: 'rgba(255,255,255,0.8)', fontWeight: '500' },
+
+  // ── Catalogue header ──────────────────────────────────────────────────────
+  catHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  catHeaderTitle: { fontSize: 17, fontWeight: '800', color: '#2C1A0E' },
+  catHeaderCount: { fontSize: 13, color: '#A0856B', fontWeight: '500' },
+
+  // ── Product grid ──────────────────────────────────────────────────────────
+  productRow: { justifyContent: 'space-between', marginBottom: CARD_GAP },
+  productCard: {
+    width: CARD_WIDTH,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#C0612B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+  },
+  // ── Product image — adjust IMAGE HEIGHT here ↓ ───────────────────────────
+  productImg: {
+    width: '100%',
+    height: CARD_WIDTH * 0.68,    // ← change 0.68 to adjust card image height ratio
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  productImgText: { fontSize: 36, fontWeight: '900', color: 'rgba(255,255,255,0.5)' },
+  badge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: '#C0612B',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  badgeText: { fontSize: 9, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
+  cardBody: { padding: 10 },
+  productCategory: { fontSize: 10, color: '#C0612B', fontWeight: '700', letterSpacing: 0.5, marginBottom: 2 },
+  productName: { fontSize: 14, fontWeight: '700', color: '#2C1A0E', marginBottom: 2, lineHeight: 18 },
+  packSize: { fontSize: 11, color: '#A0856B', fontWeight: '500', marginBottom: 3 },
+  productDesc: { fontSize: 11, color: '#888', lineHeight: 15, marginBottom: 8 },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', marginBottom: 10 },
+  price: { fontSize: 18, fontWeight: '800', color: '#C0612B' },
+  priceUnit: { fontSize: 11, color: '#A0856B', marginLeft: 2 },
+
+  // ── Add to cart button ────────────────────────────────────────────────────
+  addBtn: {
+    backgroundColor: '#C0612B',
+    borderRadius: 10,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+  },
+  addBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+
+  // ── Quantity controls (shown when item is in cart) ────────────────────────
+  qtyControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFF5EB',
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#C0612B',
+    overflow: 'hidden',
+  },
+  qtyBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center', backgroundColor: '#C0612B' },
+  qtyBtnText: { fontSize: 18, fontWeight: '700', color: '#fff' },
+  qtyValue: { fontSize: 14, fontWeight: '800', color: '#C0612B', flex: 1, textAlign: 'center' },
+
+  // ── Empty state ───────────────────────────────────────────────────────────
+  emptyState: { alignItems: 'center', paddingVertical: 48 },
+  emptyText: { fontSize: 15, color: '#BBB', marginTop: 10, fontWeight: '500' },
+  emptyClear: { marginTop: 10, fontSize: 14, color: '#C0612B', fontWeight: '700' },
+
+  // ── Bottom nav ────────────────────────────────────────────────────────────
+  bottomNav: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#F5E8D8',
+    paddingVertical: 8,
+    paddingBottom: Platform?.OS === 'ios' ? 20 : 8,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+  },
+  navTab: { flex: 1, alignItems: 'center', gap: 2 },
+  navLabel: { fontSize: 11, color: '#AAA', fontWeight: '500' },
+  navLabelActive: { color: '#C0612B' },
+  navBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    backgroundColor: '#C0612B',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  navBadgeText: { fontSize: 9, fontWeight: '800', color: '#fff' },
 });
 
 export default HomeScreen;
