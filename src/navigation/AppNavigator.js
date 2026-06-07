@@ -1,7 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/navigation/AppNavigator.js
-// Auth-gated stack navigator.
-// Shows Splash → then Login/Signup (if not logged in) or Home (if logged in).
+// CheckoutScreen removed — checkout is now embedded inside CartScreen.
 // ─────────────────────────────────────────────────────────────────────────────
 import React from 'react';
 import { View, ActivityIndicator } from 'react-native';
@@ -21,18 +20,15 @@ import OrderSuccessScreen from '../screens/OrderSuccessScreen';
 import TrackOrderScreen   from '../screens/TrackorderScreen';
 
 const Stack = createNativeStackNavigator();
-
-// Shared screen options (no header, slide animation)
 const SCREEN_OPTS = { headerShown: false };
 
 const AppNavigator = () => {
   const { user, loading } = useAuth();
 
-  // While restoring session show a simple loader (SplashScreen handles branding)
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#FFF5EB', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#C0612B" />
+      <View style={{ flex: 1, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#2E7D32" />
       </View>
     );
   }
@@ -41,7 +37,6 @@ const AppNavigator = () => {
     <NavigationContainer>
       <Stack.Navigator screenOptions={SCREEN_OPTS}>
         {user ? (
-          // ── Authenticated ────────────────────────────────────────────────
           <>
             <Stack.Screen name="Home"         component={HomeScreen} />
             <Stack.Screen name="Cart"         component={CartScreen} />
@@ -51,7 +46,6 @@ const AppNavigator = () => {
             <Stack.Screen name="TrackOrder"   component={TrackOrderScreen} />
           </>
         ) : (
-          // ── Unauthenticated ──────────────────────────────────────────────
           <>
             <Stack.Screen name="Splash" component={SplashScreen} />
             <Stack.Screen name="Login"  component={LoginScreen} />

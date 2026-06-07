@@ -1,47 +1,35 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/data/products.js
-// Local product catalogue for BAYO Masala
-//
-// HOW TO ADD YOUR REAL IMAGES:
-//   1. Put your image files inside the  assets/  folder (e.g. assets/chilli_powder.png)
-//   2. Replace each  image: null  line with:
-//        image: require('../../../assets/YOUR_FILENAME.png'),
-//   3. You can also delete the  backgroundColor  key once the real image is added.
-//
-// IMAGE NAMING SUGGESTION (snake_case):
-//   bayo_logo.png          ← app logo
-//   chilli_powder.png
-//   kanda_lasun.png
-//   kitchen_king.png
-//   mutton_masala.png
-//   chicken_masala.png
-//   goda_masala.png
-//   coriander_powder.png
-//   black_pepper.png
-//   cloves.png
-//   cinnamon.png
-//   bay_leaf.png
-//   hotel_blend.png
-//   turmeric.png
-//   cumin.png
+// BAYO Masala product catalogue — with variants (pack sizes + prices)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const CATEGORIES = ['All', 'Khada Masala', 'Masale', 'Special Blends', 'Others'];
+
+// ── Variant helper ────────────────────────────────────────────────────────────
+// Given a base price (per kg), generates standard pack sizes with prices.
+// Adjust multipliers or override per product as needed.
+const makeVariants = (pricePerKg) => [
+  { label: '50 g',  price: Math.round(pricePerKg * 0.05) },
+  { label: '100 g', price: Math.round(pricePerKg * 0.10) },
+  { label: '250 g', price: Math.round(pricePerKg * 0.25) },
+  { label: '500 g', price: Math.round(pricePerKg * 0.50) },
+  { label: '1 kg',  price: Math.round(pricePerKg * 1.00) },
+];
 
 export const PRODUCTS = [
 
   // ── KHADA MASALA ──────────────────────────────────────────────────────────
   {
     id: 'p1',
-    name: 'kanda lasun masala',
+    name: 'Kanda Lasun Masala',
     category: 'Khada Masala',
-    price: 650,
+    price: 650,          // base price per kg (used for display)
     unit: 'kg',
     packSize: '500 g',
-    description: 'Bold, pungent whole black pepper. Ideal for marinades and slow-cook curries.',
+    description: 'Bold, pungent onion-garlic masala blend. The backbone of Maharashtrian cooking.',
     backgroundColor: '#2D2D2D',
     badge: 'PREMIUM',
-    // ↓ Replace null with: require('../../assets/black_pepper.png')
+    variants: makeVariants(650),
     image: require('../../assets/1.png'),
   },
   {
@@ -51,10 +39,10 @@ export const PRODUCTS = [
     price: 1200,
     unit: 'kg',
     packSize: '250 g',
-    description: 'Aromatic whole cloves. Rich flavour for biryanis and masala chai.',
+    description: 'Rich, aromatic paneer masala. Perfect for dhabas and hotel kitchens.',
     backgroundColor: '#6B3A2A',
     badge: null,
-    // ↓ Replace null with: require('../../assets/cloves.png')
+    variants: makeVariants(1200),
     image: require('../../assets/2.png'),
   },
   {
@@ -67,7 +55,7 @@ export const PRODUCTS = [
     description: 'Premium Ceylon cinnamon sticks. Sweet, warm aroma for curries and desserts.',
     backgroundColor: '#8B4513',
     badge: null,
-    // ↓ Replace null with: require('../../assets/cinnamon.png')
+    variants: makeVariants(680),
     image: require('../../assets/3.png'),
   },
   {
@@ -77,10 +65,10 @@ export const PRODUCTS = [
     price: 320,
     unit: 'kg',
     packSize: '200 g',
-    description: 'Fragrant dried bay leaves. Essential base for stocks, gravies and rice.',
+    description: 'Restaurant-grade chicken masala. Consistent taste every time — no MSG.',
     backgroundColor: '#4A7C59',
     badge: null,
-    // ↓ Replace null with: require('../../assets/bay_leaf.png')
+    variants: makeVariants(320),
     image: require('../../assets/4.png'),
   },
 
@@ -95,7 +83,7 @@ export const PRODUCTS = [
     description: 'Vibrant Guntur-grade red chilli powder. Consistent heat, bright colour.',
     backgroundColor: '#C0392B',
     badge: 'BESTSELLER',
-    // ↓ Replace null with: require('../../assets/chilli_powder.png')
+    variants: makeVariants(720),
     image: require('../../assets/5.png'),
   },
   {
@@ -105,36 +93,36 @@ export const PRODUCTS = [
     price: 380,
     unit: 'kg',
     packSize: '500 g',
-    description: 'Authentic onion-garlic masala blend. The backbone of Maharashtrian cooking.',
+    description: 'Authentic Guntur red chilli powder. Consistent heat and deep red colour.',
     backgroundColor: '#E67E22',
     badge: null,
-    // ↓ Replace null with: require('../../assets/kanda_lasun.png')
+    variants: makeVariants(380),
     image: require('../../assets/6.png'),
   },
   {
     id: 'p7',
-    name: 'Turmeric Powder',
-    category: 'Others',
+    name: 'Goda Masala',
+    category: 'Masale',
     price: 450,
     unit: 'kg',
     packSize: '500 g',
     description: 'Traditional Maharashtrian goda masala. Deep earthy flavour with warm spices.',
     backgroundColor: '#7D4E1E',
     badge: null,
-    // ↓ Replace null with: require('../../assets/goda_masala.png')
+    variants: makeVariants(450),
     image: require('../../assets/7.png'),
   },
   {
     id: 'p8',
     name: 'Coriander Powder',
-    category: 'Others',
+    category: 'Masale',
     price: 260,
     unit: 'kg',
     packSize: '1 kg',
     description: 'Stone-ground coriander powder. Light citrusy base spice for any curry.',
     backgroundColor: '#C8A951',
     badge: null,
-    // ↓ Replace null with: require('../../assets/coriander_powder.png')
+    variants: makeVariants(260),
     image: require('../../assets/8.png'),
   },
 
@@ -149,7 +137,7 @@ export const PRODUCTS = [
     description: 'All-purpose kitchen king blend. Elevates any curry, dal or vegetable instantly.',
     backgroundColor: '#D35400',
     badge: 'HOT',
-    // ↓ Replace null with: require('../../assets/kitchen_king.png')
+    variants: makeVariants(520),
     image: require('../../assets/14.png'),
   },
   {
@@ -162,7 +150,7 @@ export const PRODUCTS = [
     description: 'Restaurant-grade chicken masala. Consistent taste every time — no MSG.',
     backgroundColor: '#E74C3C',
     badge: 'POPULAR',
-    // ↓ Replace null with: require('../../assets/chicken_masala.png')
+    variants: makeVariants(490),
     image: require('../../assets/15.png'),
   },
   {
@@ -175,7 +163,7 @@ export const PRODUCTS = [
     description: 'Bold mutton masala with deep flavour. Ideal for slow-cooked curries and kebabs.',
     backgroundColor: '#922B21',
     badge: null,
-    // ↓ Replace null with: require('../../assets/mutton_masala.png')
+    variants: makeVariants(560),
     image: require('../../assets/17.png'),
   },
   {
@@ -188,7 +176,7 @@ export const PRODUCTS = [
     description: 'Exclusive BAYO hotel blend. Used by top hotels for consistent premium taste.',
     backgroundColor: '#1A5276',
     badge: 'EXCLUSIVE',
-    // ↓ Replace null with: require('../../assets/hotel_blend.png')
+    variants: makeVariants(720),
     image: require('../../assets/19.png'),
   },
 
@@ -203,7 +191,7 @@ export const PRODUCTS = [
     description: 'Pure high-curcumin turmeric. Vibrant colour and authentic flavour guaranteed.',
     backgroundColor: '#F39C12',
     badge: null,
-    // ↓ Replace null with: require('../../assets/turmeric.png')
+    variants: makeVariants(280),
     image: require('../../assets/Mirch.png'),
   },
   {
@@ -216,7 +204,7 @@ export const PRODUCTS = [
     description: 'Hand-cleaned cumin seeds. Earthy, warm aroma — perfect for tadka and rice.',
     backgroundColor: '#6E5234',
     badge: null,
-    // ↓ Replace null with: require('../../assets/cumin.png')
+    variants: makeVariants(360),
     image: require('../../assets/Vatan Masala.png'),
   },
 ];
